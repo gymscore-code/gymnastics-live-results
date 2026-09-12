@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ジュニア体操競技大会｜速報</title>
+<style>
+*{box-sizing:border-box} :root{--navy:#17365d;--blue:#2872c8;--pink:#df5b8c;--bg:#f4f7fb;--line:#d9e1e8;--muted:#6b7280}
+body{margin:0;background:var(--bg);color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Yu Gothic",Meiryo,sans-serif}
+header{background:linear-gradient(135deg,#0f2745,var(--navy));color:#fff;padding:22px 18px;box-shadow:0 6px 20px #17365d22}
+.head{max-width:1050px;margin:auto;display:flex;justify-content:space-between;gap:16px;align-items:center}
+small{opacity:.8}.status{background:#dff7e8;color:#167447;border-radius:99px;padding:7px 11px;font-weight:800;font-size:13px}
+main{max-width:1050px;margin:auto;padding:28px 18px 50px}.view{display:none}.view.active{display:block}
+.hero,.card,.tablecard{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 8px 25px #17365d12}
+.hero{padding:28px}.hero h2{font-size:clamp(26px,5vw,42px);margin:8px 0}.muted{color:var(--muted)}
+.pill{display:inline-block;background:#eaf1f9;color:var(--navy);padding:7px 11px;border-radius:99px;font-size:12px;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:18px}.grid.three{grid-template-columns:repeat(3,1fr)}
+.btncard{background:#fff;border:0;border-radius:20px;padding:25px;text-align:left;box-shadow:0 8px 22px #17365d14;cursor:pointer;min-height:130px}
+.btncard:hover{transform:translateY(-2px)}.btncard strong{display:block;font-size:26px;color:var(--navy)}.btncard span{color:var(--muted)}
+.men{border-top:6px solid var(--blue)}.women{border-top:6px solid var(--pink)}.gender{font-size:30px!important}
+.adminbtn{background:transparent;color:white;border:1px solid #ffffff66;border-radius:9px;padding:7px 9px;font-weight:800;cursor:pointer}.back{border:0;background:none;color:var(--navy);font-weight:800;padding:0;margin-bottom:16px;cursor:pointer}
+h2{color:#142f52}.events{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.event{padding:20px;min-height:auto}
+.tablecard{overflow:hidden;margin-top:18px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}
+th{background:var(--navy);color:#fff;text-align:left;padding:13px}td{padding:13px;border-bottom:1px solid #edf1f5}.score{font-weight:900}
+.name{border:0;background:none;padding:0;color:var(--navy);font-weight:800;text-decoration:underline;cursor:pointer}
+.athlete{padding:25px}.scoregrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}
+.scorebox{border:1px solid var(--line);border-radius:15px;padding:15px;display:flex;justify-content:space-between}.scorebox b{font-size:21px}
+footer{text-align:center;color:#8993a0;font-size:12px;padding:20px}
+@media(max-width:700px){.grid,.grid.three,.events,.scoregrid{grid-template-columns:1fr}.head{align-items:flex-start}.btncard{min-height:110px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+function gradeNumber(v){
+ if(typeof v==="number") return v;
+ let m=String(v||"").match(/[1-6１-６]/); if(!m)return null;
+ return "１２３４５６".includes(m[0]) ? "１２３４５６".indexOf(m[0])+1 : Number(m[0]);
+}
+function normHeader(v){
+ return String(v??"").replace(/\s+/g,"").replace(/[　]/g,"").toLowerCase();
+}
+function findHeaderRow(rows){
+ const keys=["選手名","氏名","名前"];
+ for(let r=0;r<Math.min(rows.length,20);r++){
+   const hs=rows[r].map(normHeader);
+   if(keys.some(k=>hs.includes(k)) && hs.some(x=>x.includes("学年"))) return r;
+ }
+ return -1;
+}
+function findCol(headers, candidates){
+ const hs=headers.map(normHeader);
+ for(const c of candidates){
+   let i=hs.findIndex(x=>x===normHeader(c));
+   if(i>=0)return i;
+ }
+ for(const c of candidates){
+   let i=hs.findIndex(x=>x.includes(normHeader(c)));
+   if(i>=0)return i;
+ }
+ return -1;
+}
+async function importExcel(){
+ const f=document.getElementById("xf").files[0], msg=document.getElementById("imsg");
+ if(!f){msg.innerHTML='<span class="pill">Excelを選択してください</span>';return}
+ try{
+  const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});
+  const preferred=["得点入力","速報","選手マスター"];
+  let ws=null, sheetName="";
+  for(const n of preferred){
+    if(wb.Sheets[n]){
+      const test=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true});
+      if(findHeaderRow(test)>=0){ws=wb.Sheets[n];sheetName=n;break}
+    }
+  }
+  if(!ws){
+    for(const n of wb.SheetNames){
+      const test=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:null,raw:true});
+      if(findHeaderRow(test)>=0){ws=wb.Sheets[n];sheetName=n;break}
+    }
+  }
+  if(!ws)throw new Error("選手名・学年の見出しがあるシートを見つけられませんでした");
+
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+  const hr=findHeaderRow(rows), headers=rows[hr];
+  const nameCol=findCol(headers,["選手名","氏名","名前"]);
+  const clubCol=findCol(headers,["クラブ","クラブ名","所属","所属クラブ"]);
+  const gradeCol=findCol(headers,["学年"]);
+  if(nameCol<0||gradeCol<0)throw new Error("選手名または学年の列を見つけられませんでした");
+
+  const g=document.getElementById("ig").value,c=document.getElementById("ic").value;
+  const events=g==="男子"?["ゆか","あん馬","跳馬","鉄棒"]:["跳馬","段違い平行棒","平均台","ゆか"];
+  const eventCols={};
+  events.forEach(ev=>eventCols[ev]=findCol(headers,[ev]));
+
+  let athletes=[];
+  for(let i=hr+1;i<rows.length;i++){
+   const r=rows[i], name=r[nameCol], grade=gradeNumber(r[gradeCol]);
+   if(!name||!grade)continue;
+   let scores={};
+   for(const ev of events){
+     const col=eventCols[ev];
+     if(col>=0){
+       const v=r[col];
+       if(v!==null&&v!==""&&!isNaN(Number(v)))scores[ev]=Number(v);
+     }
+   }
+   athletes.push({
+     name:String(name).trim(),
+     club:clubCol>=0?String(r[clubCol]||"").trim():"",
+     grade,
+     scores
+   });
+  }
+  if(!athletes.length)throw new Error("選手データを読み取れませんでした。Excelに選手名と学年を入力してから再度お試しください");
+
+  imported[g]??={}; imported[g][c]=athletes;
+  localStorage.setItem("gymImported",JSON.stringify(imported));
+  document.getElementById("updated").textContent="最終更新 "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+  const found=events.filter(e=>eventCols[e]>=0).join("・")||"得点列なし";
+  msg.innerHTML=`<span class="pill">${g} クラス${c}：${athletes.length}名を反映</span><p class="muted">読込元：${sheetName} ／ 認識した種目：${found}</p>`;
+  renderLoaded();
+ }catch(e){msg.textContent="読み込みできませんでした："+e.message}
+}
+function renderLoaded(){
+ let x=[];["男子","女子"].forEach(g=>["Ⅰ","Ⅱ","Ⅲ"].forEach(c=>{let n=imported[g]?.[c]?.length;if(n)x.push(`${g} クラス${c}：${n}名`)}));
+ const el=document.getElementById("loaded");if(el)el.innerHTML=x.length?x.join("<br>"):"まだありません";
+}
+
+</script></head>
+<body>
+<header><div class="head"><div><small>GYMNASTICS LIVE RESULTS</small><h1>ジュニア体操競技大会</h1></div><div><span class="status">競技中</span> <button class="adminbtn" onclick="go('admin')">運営</button><br><small id="updated"></small></div></div></header>
+<main>
+<section id="home" class="view active">
+ <div class="hero"><span class="pill">大会速報</span><h2>最新順位をチェック</h2><p class="muted">男女・競技クラス・種目を選択してください。</p></div>
+ <h2>競技区分を選択</h2>
+ <div class="grid"><button class="btncard men" onclick="pickGender('男子')"><strong class="gender">🤸‍♂️ 男子</strong><span>MEN'S ARTISTIC</span></button><button class="btncard women" onclick="pickGender('女子')"><strong class="gender">🤸‍♀️ 女子</strong><span>WOMEN'S ARTISTIC</span></button></div>
+</section>
+
+<section id="competition" class="view"><button class="back" onclick="go('home')">← 戻る</button><span id="gBadge" class="pill"></span><h2>競技クラスを選択</h2>
+ <div class="grid three">
+  <button class="btncard" onclick="pickCompetition('Ⅰ')"><strong>クラスⅠ</strong><span>学年区分あり</span></button>
+  <button class="btncard" onclick="pickCompetition('Ⅱ')"><strong>クラスⅡ</strong><span>クラス全体順位</span></button>
+  <button class="btncard" onclick="pickCompetition('Ⅲ')"><strong>クラスⅢ</strong><span>クラス全体順位</span></button>
+ </div>
+</section>
+
+<section id="division" class="view"><button class="back" onclick="go('competition')">← 戻る</button><span id="dBadge" class="pill"></span><h2>学年区分を選択</h2>
+ <div class="grid"><button class="btncard" onclick="pickDivision('小学1〜4年')"><strong>小学1〜4年の部</strong><span>クラスⅠ</span></button><button class="btncard" onclick="pickDivision('小学5〜6年')"><strong>小学5〜6年の部</strong><span>クラスⅠ</span></button></div>
+</section>
+
+<section id="events" class="view"><button class="back" id="eventBack">← 戻る</button><span id="eBadge" class="pill"></span><h2>種目を選択</h2><div id="eventButtons" class="events"></div></section>
+
+<section id="ranking" class="view"><button class="back" onclick="go('events')">← 種目選択へ</button><span id="rBadge" class="pill"></span><h2 id="rTitle"></h2>
+ <div class="tablecard"><div class="scroll"><table><thead><tr><th>順位</th><th>選手名</th><th>クラブ</th><th>学年</th><th>得点</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+ <p class="muted">選手名をタップすると個人成績を表示します。</p>
+</section>
+
+<section id="athlete" class="view"><button class="back" onclick="go('ranking')">← 順位へ戻る</button><div class="card athlete"><span id="aBadge" class="pill"></span><h2 id="aName"></h2><p id="aMeta" class="muted"></p><div id="scores" class="scoregrid"></div></div></section>
+
+<section id="admin" class="view">
+ <button class="back" onclick="go('home')">← 速報へ戻る</button>
+ <div class="card athlete">
+  <span class="pill">運営用</span><h2>Excelデータ取込</h2>
+  <p class="muted">Excel内の見出しを自動判定して、選手名・クラブ・学年・各種目の得点を読み込みます。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0">
+   <label>男女<select id="ig" style="display:block;width:100%;padding:11px;margin-top:6px"><option>男子</option><option>女子</option></select></label>
+   <label>競技クラス<select id="ic" style="display:block;width:100%;padding:11px;margin-top:6px"><option>Ⅰ</option><option>Ⅱ</option><option>Ⅲ</option></select></label>
+  </div>
+  <input id="xf" type="file" accept=".xlsx,.xls" style="width:100%;padding:16px;border:2px dashed #b9c6d6;border-radius:14px">
+  <button onclick="importExcel()" style="margin-top:14px;background:#17365d;color:white;border:0;border-radius:11px;padding:12px 18px;font-weight:800;cursor:pointer">Excelを読み込む</button>
+  <div id="imsg" style="margin-top:14px"></div>
+  <h3>読み込み済みデータ</h3><p id="loaded" class="muted">まだありません</p>
+ </div>
+</section>
+</main><footer>ジュニア体操競技大会 速報システム｜試作版 v2</footer>
+<script>
+const apparatus={男子:["ゆか","あん馬","跳馬","鉄棒","個人総合"],女子:["跳馬","段違い平行棒","平均台","ゆか","個人総合"]};
+const clubs=["青空クラブ","ひかり体操","さくらGYM","スター体操","みらいクラブ","ドリーム"];
+let state={gender:null,competition:null,division:null,event:null};
+let imported=JSON.parse(localStorage.getItem("gymImported")||"{}");
+function makeAthletes(g,c){
+ let saved=imported[g]?.[c];
+ if(saved && saved.length){
+   let arr=saved;
+   if(c==="Ⅰ" && state.division==="小学1〜4年") arr=arr.filter(x=>x.grade>=1&&x.grade<=4);
+   if(c==="Ⅰ" && state.division==="小学5〜6年") arr=arr.filter(x=>x.grade>=5&&x.grade<=6);
+   return arr;
+ }
+ return [];
+}
+function go(id){if(id==="admin")setTimeout(renderLoaded,0);document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");scrollTo(0,0)}
+function pickGender(g){state.gender=g;document.getElementById("gBadge").textContent=g;go("competition")}
+function pickCompetition(c){state.competition=c;state.division=null;if(c==="Ⅰ"){document.getElementById("dBadge").textContent=`${state.gender}・クラスⅠ`;go("division")}else{showEvents()}}
+function pickDivision(d){state.division=d;showEvents()}
+function showEvents(){
+ document.getElementById("eBadge").textContent=`${state.gender}・クラス${state.competition}${state.division?"・"+state.division:""}`;
+ const back=document.getElementById("eventBack");back.onclick=()=>go(state.competition==="Ⅰ"?"division":"competition");
+ const box=document.getElementById("eventButtons");box.innerHTML="";
+ apparatus[state.gender].forEach(e=>{let b=document.createElement("button");b.className="btncard event";b.innerHTML=`<strong>${e}</strong><span>順位を見る</span>`;b.onclick=()=>showRanking(e);box.appendChild(b)});
+ let t=document.createElement("button");t.className="btncard event";t.innerHTML=`<strong>個人総合</strong><span>全種目終了者の順位を見る</span>`;t.onclick=()=>showRanking("個人総合");box.appendChild(t);go("events")
+}
+function hasScore(a,e){return Object.prototype.hasOwnProperty.call(a.scores||{},e) && a.scores[e]!==null && a.scores[e]!=="" && !isNaN(Number(a.scores[e]))}
+function totalReady(a){return apparatus[state.gender].every(e=>hasScore(a,e))}
+function total(a){return totalReady(a)?+apparatus[state.gender].reduce((sum,e)=>sum+Number(a.scores[e]),0).toFixed(3):null}
+function val(a,e){return e==="個人総合"?total(a):(hasScore(a,e)?Number(a.scores[e]):null)}
+function ranked(event){
+ let arr=makeAthletes(state.gender,state.competition)
+   .map(a=>({...a,value:val(a,event)}))
+   .filter(a=>a.value!==null);
+ arr.sort((a,b)=>b.value-a.value);
+ let prev=null,r=0;
+ return arr.map((a,i)=>{if(a.value!==prev){r=i+1;prev=a.value}return{...a,rank:r}})
+}
+function showRanking(e){
+ state.event=e;document.getElementById("rBadge").textContent=`${state.gender}・クラス${state.competition}${state.division?"・"+state.division:""}`;
+ document.getElementById("rTitle").textContent=e+" 順位";let body=document.getElementById("rows");body.innerHTML="";
+ const list=ranked(e);
+ list.forEach(a=>{let tr=document.createElement("tr");let medal=a.rank==1?"🥇 ":a.rank==2?"🥈 ":a.rank==3?"🥉 ":"";tr.innerHTML=`<td><b>${medal}${a.rank}</b></td><td><button class="name">${a.name}</button></td><td>${a.club}</td><td>小学${a.grade}年</td><td class="score">${a.value.toFixed(3)}</td>`;tr.querySelector(".name").onclick=()=>showAthlete(a);body.appendChild(tr)});
+ if(!list.length){body.innerHTML=`<tr><td colspan="5" style="padding:28px;text-align:center" class="muted">${e==="個人総合"?"全種目の得点がそろうと個人総合順位を表示します":"この種目はまだ得点が入力されていません"}</td></tr>`}
+ go("ranking")
+}
+function rankOf(name,e){let x=ranked(e).find(x=>x.name===name);return x?x.rank:null}
+function showAthlete(a){
+ document.getElementById("aBadge").textContent=`${state.gender}・クラス${state.competition}${state.division?"・"+state.division:""}`;
+ document.getElementById("aName").textContent=a.name;document.getElementById("aMeta").textContent=`${a.club}｜小学${a.grade}年`;
+ let box=document.getElementById("scores");box.innerHTML="";
+ apparatus[state.gender].forEach(e=>{let v=val(a,e),r=rankOf(a.name,e),d=document.createElement("div");d.className="scorebox";d.innerHTML=`<span>${e}</span><span><b>${v===null?"―":v.toFixed(3)}</b><br><small>${r?`${r}位`:"未演技"}</small></span>`;box.appendChild(d)});
+ let tv=total(a),tr=rankOf(a.name,"個人総合"),d=document.createElement("div");d.className="scorebox";d.innerHTML=`<span>個人総合</span><span><b>${tv===null?"―":tv.toFixed(3)}</b><br><small>${tr?`${tr}位`:"全種目終了後"}</small></span>`;box.appendChild(d);
+ go("athlete")
+}
+document.getElementById("updated").textContent="最終更新 "+new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+
+function gradeNumber(v){
+ if(typeof v==="number") return v;
+ let m=String(v||"").match(/[1-6１-６]/); if(!m)return null;
+ return "１２３４５６".includes(m[0]) ? "１２３４５６".indexOf(m[0])+1 : Number(m[0]);
+}
+function renderLoaded(){
+ let x=[];["男子","女子"].forEach(g=>["Ⅰ","Ⅱ","Ⅲ"].forEach(c=>{let n=imported[g]?.[c]?.length;if(n)x.push(`${g} クラス${c}：${n}名`)}));
+ const el=document.getElementById("loaded");if(el)el.innerHTML=x.length?x.join("<br>"):"まだありません";
+}
+
+</script></body></html>
